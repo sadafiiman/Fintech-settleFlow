@@ -1,4 +1,7 @@
 package com.settleFlow.modules.identity.enums;
 
-public class Role {
+public enum Role {
+    ADMIN,
+    MERCHANT,
+    CUSTOMER
 }
