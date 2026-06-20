@@ -1,6 +1,5 @@
 package com.settleFlow.modules.order.service;
 
-import com.settleFlow.modules.banking.service.CreditService;
 import com.settleFlow.modules.customer.service.CustomerService;
 import com.settleFlow.modules.order.dto.request.PayInstallmentRequest;
 import com.settleFlow.modules.order.dto.response.InstallmentResponse;
@@ -13,7 +12,9 @@ import com.settleFlow.modules.order.repository.OrderRepository;
 import com.settleFlow.modules.shared.exception.BusinessException;
 import com.settleFlow.modules.shared.exception.NotFoundException;
 import com.settleFlow.modules.shared.util.InstallmentMath;
+import com.settleFlow.modules.wallet.service.WalletService;
 import lombok.RequiredArgsConstructor;
+import com.settleFlow.modules.wallet.enums.TransactionType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +31,8 @@ public class InstallmentService {
     private final InstallmentRepository installmentRepository;
     private final OrderRepository orderRepository;
     private final CustomerService customerService;
+    private final WalletService walletService;
+
 
     // ── Called by OrderService right after an Order is created ─────────────
     @Transactional
@@ -87,10 +90,25 @@ public class InstallmentService {
         if (!installment.getOrder().getCustomerId().equals(customer.getId())) {
             throw BusinessException.badRequest("This installment does not belong to you");
         }
-
         if (installment.getStatus() == InstallmentStatus.PAID) {
             throw BusinessException.badRequest("Installment is already paid");
         }
+
+        // Move the money FIRST. If the wallet has insufficient funds, debit()
+        // throws and the whole @Transactional method rolls back — the
+        // installment status is never touched on failure.
+        if ("WALLET".equalsIgnoreCase(request.getPaymentMethod())) {
+            Long walletId = walletService.getWalletIdForCustomer(customer.getId());
+            walletService.debit(
+                    walletId,
+                    installment.getAmount(),
+                    TransactionType.INSTALLMENT_PAYMENT,
+                    "INSTALLMENT",
+                    installment.getId(),
+                    "Installment #" + installment.getInstallmentNumber() + " payment"
+            );
+        }
+        // Other payment methods (CARD, gateway) would integrate here — future work
 
         installment.setPaidAmount(installment.getAmount());
         installment.setPaidAt(LocalDateTime.now());
