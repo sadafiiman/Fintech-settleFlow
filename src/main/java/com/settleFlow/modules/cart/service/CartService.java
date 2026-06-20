@@ -148,4 +148,19 @@ public class CartService {
         }
         return item;
     }
+
+
+    // Used by OrderService — finds the cart that was just approved at checkout
+    public Cart getApprovedCartOrThrow(Long customerId) {
+        return cartRepository.findByCustomerIdAndStatus(customerId, CartStatus.APPROVED)
+                .orElseThrow(() -> new NotFoundException(
+                        "No approved cart found. Please complete checkout first."));
+    }
+
+    // Used by OrderService — marks the cart as consumed once the Order is created
+    @Transactional
+    public void markConverted(Cart cart) {
+        cart.setStatus(CartStatus.CONVERTED);
+        cartRepository.save(cart);
+    }
 }
