@@ -33,7 +33,7 @@ public class OrderController {
     public ResponseEntity<ApiResponse<List<OrderResponse>>> myOrders() {
         Long userId = SecurityUtils.getCurrentUserId();
         return ResponseEntity.ok(
-                ApiResponse.ok("Orders retrieved", orderService.settleFlow.modules.modules(userId)));
+                ApiResponse.ok("Orders retrieved", orderService.getMyOrders(userId)));
     }
 
     // GET /api/orders/{id}
